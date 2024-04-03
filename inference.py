@@ -1,13 +1,12 @@
 import torch
 from ultralytics.utils.plotting import Annotator, colors
-
+import numpy as np
 from utils.dataloaders import OakDLoadImages
 from utils.general import (
     Profile,
     check_img_size,
     non_max_suppression,
     scale_boxes,
-    xyxy2xywh,
 )
 from utils.torch_utils import smart_inference_mode
 
@@ -66,6 +65,7 @@ def run(
             pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
 
         results_for_bounding_boxes = []
+        original_image = im0.copy()
         # Process predictions
         for _, det in enumerate(pred):  # per image
             seen += 1
@@ -78,14 +78,15 @@ def run(
                 for *xyxy, conf, cls in reversed(det):
                     c = int(cls)  # integer class
                     label = names[c] if hide_conf else f"{names[c]}"
-                    # Add bbox to image
-                    c = int(cls)  # integer class
+                    
                     label = None if hide_labels else (names[c] if hide_conf else f"{names[c]} {conf:.2f}")
                     annotator.box_label(xyxy, label, color=colors(c, True))
                 
                     ######################
-                    # TODO: check whether I need normalized xyxy or standard
-                    results_for_bounding_boxes.append(xyxy)
+                    lst_xyxy = [elem.cpu().item() for elem in xyxy]
+                    lst_xyxy_conf_cls = lst_xyxy + [conf.cpu().item()] + [cls.cpu().item()]                    
+                    results_for_bounding_boxes.append(np.array(lst_xyxy_conf_cls))
+                    
                     ######################
 
-    return im0, results_for_bounding_boxes
+    return original_image, im0, results_for_bounding_boxes
