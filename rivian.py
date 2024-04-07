@@ -31,11 +31,13 @@ def run_object_detection():
     ids_list = []  # List to keep track of unique IDs
     frame_count = 0  # Counter to keep track of frame number
     wave = 1 # indicator whether video should record wave or not
-    file_name = 'tracking_data.csv'  # File name to save tracking data
-    video_name = 'video1.mp4' # Video name to save tracking data
-    elapsed_time = -1 # Time in seconds
+    file_name = 'data/tracking_data.csv'  # File name to save tracking data
+    video_name = 'video2.mp4' # Video name to save tracking data
+    elapsed_time = -3 # Time in seconds
     should_save = False 
     # Initialize dictionary to store tracking information
+    # {0: 'fist', 1: 'palm', 2: 'no_gesture'}
+    saving_class = [model.names[1]]
     tracks = {
         "frame": [],
         "id": [],
@@ -83,18 +85,19 @@ def run_object_detection():
 
             annotator.box_label([x1, y1, x2, y2], label, color=colors(int(bb_id[4]), True))
 
-            # Save tracking information to dictionary
-            tracks['frame'].append(frame_count)
-            tracks['id'].append(name_idx)
-            tracks['x1'].append(x1)
-            tracks['y1'].append(y1)
-            tracks['x2'].append(x2)
-            tracks['y2'].append(y2)
-            tracks['xc'].append(int((x1 + x2) / 2))
-            tracks['yc'].append(int((y1 + y2) / 2))
-            tracks['class'].append(names[i])
-            tracks['wave'].append(wave)
-            tracks['video'].append(video_name)
+            # Save tracking information to dictionary only for the specified classes
+            if names[i] in saving_class:
+                tracks['frame'].append(frame_count)
+                tracks['id'].append(name_idx)
+                tracks['x1'].append(x1)
+                tracks['y1'].append(y1)
+                tracks['x2'].append(x2)
+                tracks['y2'].append(y2)
+                tracks['xc'].append(int((x1 + x2) / 2))
+                tracks['yc'].append(int((y1 + y2) / 2))
+                tracks['class'].append(names[i])
+                tracks['wave'].append(wave)
+                tracks['video'].append(video_name)
             
         frame_count += 1
         cv2.imshow("Levi", img)
