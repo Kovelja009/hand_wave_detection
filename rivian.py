@@ -30,11 +30,11 @@ def run_object_detection():
     # Initialize variables
     ids_list = []  # List to keep track of unique IDs
     frame_count = 0  # Counter to keep track of frame number
-    wave = 1 # indicator whether video should record wave or not
     file_name = 'data/tracking_data.csv'  # File name to save tracking data
-    video_name = 'video2.mp4' # Video name to save tracking data
+    video_name = 'video3.mp4' # Video name to save tracking data
     elapsed_time = -3 # Time in seconds
     should_save = False 
+    wave = 0 # indicator whether video should record wave or not
     # Initialize dictionary to store tracking information
     # {0: 'fist', 1: 'palm', 2: 'no_gesture'}
     saving_class = [model.names[1]]
