@@ -1,15 +1,15 @@
-import OAK_D_api as oak
+import utils.OAK_D_api as oak
 import cv2
 import torch
 import numpy as np
 import time
-from inference import run
+from utils.yolo_inference import yolo_inference
 from models.common import DetectMultiBackend
 from sort import Sort
-from video_utils import save_video_tracking_data
+from utils.video_utils import save_video_tracking_data
 from ultralytics.utils.plotting import Annotator, colors
 
-def run_object_detection():
+def run_object_tracking():
     
     # Load model
     weights_path = './runs/train/yolov5s_results3/weights/best.pt'
@@ -57,7 +57,7 @@ def run_object_detection():
     while True:
         frame = oak_d.get_color_frame(show_fps=True)
         # Object detection
-        img, annotated_img, bbox_coord_conf_cls = run(frame=frame, classes=[0,1,2], model=model)
+        img, bbox_coord_conf_cls = yolo_inference(frame=frame, classes=[0,1,2], model=model, device=device)
         annotator = Annotator(img, line_width=3, example=str(model.names))
 
         # Update tracker
@@ -113,5 +113,5 @@ def run_object_detection():
             break
 
 if __name__ == '__main__':
-    run_object_detection()
+    run_object_tracking()
     
