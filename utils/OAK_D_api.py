@@ -57,18 +57,21 @@ class OAK_D:
         self.height = self._camRgb.getVideoHeight()
         self.width = self._camRgb.getVideoWidth()
 
+    '''Returns the color frame with number of fps from the camera with or without FPS overlay'''
     def get_color_frame(self, show_fps=False):
         video_in = self._video.get()
         # convert from 
         # Get BGR frame from NV12 encoded video frame to show with opencv
         # Visualizing the frame on slower hosts might have overhead
         cv_frame = video_in.getCvFrame()
+        self.fps_handler.next_iter()
+        fps = self.fps_handler.fps()
+        
         if show_fps:
-            self.fps_handler.next_iter()
             # return video_in.getCvFrame()
-            return self.fps_handler.show_fps(cv_frame, round(self.fps_handler.fps(), 2))
+            return self.fps_handler.show_fps(cv_frame, round(fps, 2)), fps
         else:
-            return cv_frame
+            return cv_frame, fps
 
 
 if __name__ == '__main__':

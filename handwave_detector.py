@@ -3,6 +3,7 @@ import cv2
 import torch
 import numpy as np
 import time
+import threading
 from utils.yolo_inference import yolo_inference
 from models.common import DetectMultiBackend
 from sort import Sort
@@ -26,14 +27,72 @@ class HandWaveClassifier():
         self.tracks = {} # keeping x_c and y_c for each id
         self.wave_length = wave_length # should be same as in the training of the classifier
 
+        # Read the overlay video
+        self.overlay_video_path = 'videos/anime-waves.mp4'
+        self.overlay_video = cv2.VideoCapture(self.overlay_video_path)
+        self.overlay_duration = 0.7 # Duration of the overlay video in seconds 
+        self.should_overlay = False # Flag to check if overlay should be displayed
+        self.start_time = None # Start time of the overlay video  
+
+
+    def run(self):
+        # wave = 1  # 0 if no wave, 1 if wave detected
+        cum_waves = 0  # counter for the number of waves
+
+        # Your existing code to detect waves and annotate the frame
+        frame, cum_waves = self._detect_waves_and_annotate()
+
+        if cum_waves > 0:
+            self.should_overlay = True
+            self.start_time = time.time()
+        if self.should_overlay and time.time() - self.start_time > self.overlay_duration:
+            self.should_overlay = False
+
+        # Overlay video if wave is detected
+        if self.should_overlay:
+            frame = self._overlay_video(frame)
+
+        return frame, cum_waves
+    
+    def _overlay_video(self, frame):
+        # Get the dimensions of the video
+        overlay_width = int(self.overlay_video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        overlay_height = int(self.overlay_video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        # Calculate new dimensions based on the desired scale
+        new_width = int(overlay_width * 0.4)
+        new_height = int(overlay_height * 0.4)
+
+        # Define the position for overlay (top right corner)
+        frame_height, frame_width, _ = frame.shape
+        x_offset = frame_width - new_width
+        y_offset = 0
+
+        # Loop through the overlay video frames
+        ret, overlay_frame = self.overlay_video.read()
+        if not ret:
+            # If end of video is reached, rewind to beginning
+            self.overlay_video.release()
+            self.overlay_video = cv2.VideoCapture(self.overlay_video_path)
+            ret, overlay_frame = self.overlay_video.read()
+
+        if ret:
+            # Resize the overlay frame based on the new dimensions
+            overlay_frame = cv2.resize(overlay_frame, (new_width, new_height))
+
+            # Overlay the frame onto the main frame
+            frame[:new_height, x_offset:] = overlay_frame
+
+        return frame
+
 
     '''Returns annotated image with bounding boxes and labels and the number of waves detected in the frame'''
-    def run(self):
+    def _detect_waves_and_annotate(self):
         wave = 0 # 0 if no wave, 1 if wave detected
         cum_waves = 0 # counter for the number of waves
 
         # take frame from camera
-        frame = self.oak_d.get_color_frame(show_fps=True)
+        frame, camera_fps = self.oak_d.get_color_frame(show_fps=False)
 
         # Object detection
         img, bbox_coord_conf_cls = yolo_inference(frame=frame, classes=[0,1,2], model=self.yolo, device=self.device)
@@ -47,6 +106,9 @@ class HandWaveClassifier():
 
         names = [self.yolo.names[int(cls)] for x1, y1, x2, y2, conf, cls in bbox_coord_conf_cls]
         confs = [conf for x1, y1, x2, y2, conf, cls in bbox_coord_conf_cls]
+
+        # Draw frame rate on the frame
+        cv2.putText(img, f'{camera_fps:.2f} fps', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 150), 2, cv2.LINE_AA)
 
         # Draw bounding boxes and labels for the tracked objects
         for i, bb_id in enumerate(track_bbs_ids):
@@ -75,6 +137,9 @@ class HandWaveClassifier():
                     clr = 7 # green
 
             annotator.box_label([x1, y1, x2, y2], label, color=colors(clr, True))
+
+        # show text of the number of waves detected
+        cv2.putText(img, f'Waves detected: {cum_waves}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
  
         return img, cum_waves
 
@@ -96,7 +161,7 @@ class HandWaveClassifier():
             x = np.array(list(features.values())).reshape(1, -1)
             
             # run the classifier
-            return self.classifier.predict(x)
+            return self.classifier.predict(x)[0]
         else:
             return 0
 
@@ -122,13 +187,77 @@ class HandWaveClassifier():
         self.classifier = load(self.classifier_path)
         
 
+def play_video(video_path, width, height):
+    # Open the video file
+    cap = cv2.VideoCapture(video_path)
+
+    # Check if the video file is opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video file.")
+        return
+
+    # Read and display frames until the end of the video
+    while cap.isOpened():
+        ret, frame = cap.read()
+
+        # Check if frame is successfully read
+        if not ret:
+            break
+
+        # resize the frame
+        frame = cv2.resize(frame, (width, height))
+        
+        # show text
+        cv2.putText(frame, "Please be patient while model loads...", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (104, 188, 222), 4, cv2.LINE_AA)
+        cv2.putText(frame, "You can't depend on your eyes when your imagination", (1000, 950), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(frame, "is out of focus", (1000, 1000), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+
+        # Display the frame
+        cv2.imshow('Loading model', frame)
+
+        
+        cv2.waitKey(50)
+
+    # Release the video capture object and close all windows
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+
+class DetectThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.detector = None
+        self.event = threading.Event()
+
+    def run(self):
+        self.detector = HandWaveClassifier(height=height, width=width, fps=30,
+                                    yolo_path='./runs/train/yolov5s_results3/weights/best.pt',
+                                    classifier_path='models/classifier/wave_classifier.pkl')
+    
+        self.event.set()
+
+    def get_detector(self):
+        self.event.wait()
+        return self.detector
+
 
 if __name__ == '__main__':
-    detector = HandWaveClassifier(height=1080, width=1920, fps=30,
-                                yolo_path='./runs/train/yolov5s_results3/weights/best.pt',
-                                classifier_path='models/classifier/wave_classifier.pkl')
+    width, height = 1920, 1080
+    initial_video_path = 'videos/rivian.mp4'
+
+    # Initialize the detector in a separate thread to load the model
+    init_thread = DetectThread()
+
+    init_thread.start()
+
+    # Play the video while the model is being loaded
+    play_video(initial_video_path, width, height)
     
+    detector = init_thread.get_detector()
+
     while True:
+        # print("Running detector")
         frame, wave = detector.run()
         cv2.imshow("WaveDetector", frame)
 
