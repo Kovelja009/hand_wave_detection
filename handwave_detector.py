@@ -12,7 +12,7 @@ from joblib import load
 
    
 class HandWaveClassifier():
-    def __init__(self, height, width, fps, yolo_path, classifier_path):
+    def __init__(self, height, width, fps, yolo_path, classifier_path, wave_length=40):
         self.height = height
         self.width = width
         self.fps = fps
@@ -24,11 +24,14 @@ class HandWaveClassifier():
         self._load_classifier()
         self.ids_list = []  # List to keep track of unique IDs
         self.tracks = {} # keeping x_c and y_c for each id
-        self.wave_length = 40 # should be same as in the training of the classifier
+        self.wave_length = wave_length # should be same as in the training of the classifier
 
+
+    '''Returns annotated image with bounding boxes and labels and the number of waves detected in the frame'''
     def run(self):
         wave = 0 # 0 if no wave, 1 if wave detected
-        
+        cum_waves = 0 # counter for the number of waves
+
         # take frame from camera
         frame = self.oak_d.get_color_frame(show_fps=True)
 
@@ -67,14 +70,13 @@ class HandWaveClassifier():
             if names[i] == 'palm':
                 # run the classificator
                 wave = self._run_classificator(name_idx)
+                cum_waves += wave
                 if wave:
                     clr = 7 # green
 
             annotator.box_label([x1, y1, x2, y2], label, color=colors(clr, True))
  
-        # returns whether we have detected a wave or not
-        # alongside with annotated frame
-        return img, wave
+        return img, cum_waves
 
     
     def _add_point(self, id, xc, yc):
@@ -82,6 +84,7 @@ class HandWaveClassifier():
             self.tracks[id] = {'xc': [], 'yc': []}
         self.tracks[id]['xc'].append(xc)
         self.tracks[id]['yc'].append(yc)
+
 
     def _run_classificator(self, id):
         # check whether we have datapoints for this id
@@ -98,9 +101,9 @@ class HandWaveClassifier():
             return 0
 
 
-
     def _camera_setup(self):
         self.oak_d = oak.OAK_D(fps=self.fps, width=self.width, height=self.height)
+
 
     def _load_yolo(self):
         # Loading pretrained model
@@ -108,14 +111,17 @@ class HandWaveClassifier():
         self.yolo = DetectMultiBackend(self.yolo_path, device=self.device, dnn=False, fp16=False)
         self.yolo.eval()
 
+
     def _init_tracker(self):
         # Initialize SORT tracker
         self.tracker = Sort(min_hits=5, max_age=20)
+
 
     def _load_classifier(self):
         # Loading pretrained classifier
         self.classifier = load(self.classifier_path)
         
+
 
 if __name__ == '__main__':
     detector = HandWaveClassifier(height=1080, width=1920, fps=30,
