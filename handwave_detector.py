@@ -95,7 +95,7 @@ class HandWaveClassifier():
         frame, camera_fps = self.oak_d.get_color_frame(show_fps=False)
 
         # Object detection
-        img, bbox_coord_conf_cls = yolo_inference(frame=frame, classes=[0,1,2], model=self.yolo, device=self.device)
+        img, bbox_coord_conf_cls = yolo_inference(frame=frame, classes=[0,1], model=self.yolo, device=self.device)
         annotator = Annotator(img, line_width=3, example=str(self.yolo.names))
 
         # Update tracker
@@ -108,7 +108,7 @@ class HandWaveClassifier():
         confs = [conf for x1, y1, x2, y2, conf, cls in bbox_coord_conf_cls]
 
         # Draw frame rate on the frame
-        cv2.putText(img, f'{camera_fps:.2f} fps', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 150), 2, cv2.LINE_AA)
+        cv2.putText(img, f'{camera_fps:.2f} fps', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (220, 0, 120), 2, cv2.LINE_AA)
 
         # Draw bounding boxes and labels for the tracked objects
         for i, bb_id in enumerate(track_bbs_ids):

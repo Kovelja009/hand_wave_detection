@@ -31,9 +31,9 @@ def run_object_tracking():
     ids_list = []  # List to keep track of unique IDs
     frame_count = 0  # Counter to keep track of frame number
     file_name = 'data/tracking_data.csv'  # File name to save tracking data
-    video_name = 'video3.mp4' # Video name to save tracking data
-    elapsed_time = -3 # Time in seconds
-    should_save = False 
+    video_name = 'no_wave_train_2.mp4' # Video name to save tracking data
+    elapsed_time = 10 # Time in seconds
+    should_save = True 
     wave = 0 # indicator whether video should record wave or not
     # Initialize dictionary to store tracking information
     # {0: 'fist', 1: 'palm', 2: 'no_gesture'}
@@ -55,7 +55,7 @@ def run_object_tracking():
     start_time = time.time()
 
     while True:
-        frame = oak_d.get_color_frame(show_fps=True)
+        frame, camera_fps = oak_d.get_color_frame(show_fps=True)
         # Object detection
         img, bbox_coord_conf_cls = yolo_inference(frame=frame, classes=[0,1,2], model=model, device=device)
         annotator = Annotator(img, line_width=3, example=str(model.names))

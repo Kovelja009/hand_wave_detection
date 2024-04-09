@@ -27,7 +27,7 @@ def yolo_inference(
 
     # Dataloader
     bs = 1  # batch_size
-    dataset = OakDLoadImages(frame, img_size= imgsz[0], stride=stride, auto=pt)
+    dataset = OakDLoadImages(frame, img_size=imgsz[0], stride=stride, auto=pt)
     
     # Run inference
     model.warmup(imgsz=(1 if pt or model.triton else bs, 3, *imgsz))  # warmup
